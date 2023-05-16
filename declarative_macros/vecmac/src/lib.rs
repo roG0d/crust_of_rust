@@ -56,6 +56,20 @@ macro_rules! avec {
 
 }
 
+// Extra work: Sample implementation for HashMap
+use std::{collections::HashMap};
+
+#[macro_export]
+macro_rules! ahashmap {
+    ($($key: expr => $value: expr),+) => {{
+
+        let mut hm  = HashMap::new();
+        $(hm.insert($key, $value);)+
+        hm
+    }};
+
+}
+
 // Simple trait
 trait MaxValue {
     fn max_value() -> Self;
@@ -71,12 +85,10 @@ macro_rules! max_impl {
     };  
 }
 
-
 max_impl!(i32);
 max_impl!(u32);
 max_impl!(i64);
 max_impl!(u64);
-
 
 // We can use cargo expand --lib --tests to see the expansion of every macro
 #[test]
@@ -131,3 +143,23 @@ fn clone_2_non_literal(){
 /// ```
 #[allow(dead_code)]
 pub struct CompileFaileTest;
+
+
+#[test]
+fn single_hashmap(){
+    let x: HashMap<&str,u32> = ahashmap!{"one" => 1};
+    assert!(!x.is_empty());
+    assert_eq!(x.len(),1);
+    assert_eq!(x.get("one"), Some(&1));
+}
+
+#[test] 
+fn double_hashmap(){
+    let x: HashMap<&str,u32> = ahashmap!{
+                                        "one" => 1,
+                                        "two" => 2
+                                        };
+    assert!(!x.is_empty());
+    assert_eq!(x.len(),2);
+    assert_eq!(x.get("two"), Some(&2));
+}
