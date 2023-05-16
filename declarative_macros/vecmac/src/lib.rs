@@ -1,12 +1,18 @@
 #[macro_export]
 macro_rules! avec {
-    () => {
-        Vec::new()
-    };
-
-    // Syntax needed to state that can be 1 or more expressions followed by , 
+     
+    // Syntax needed to state that can be 1 or more expressions followed by ", " 
     ($($element: expr),+) => {{
-        let mut vs = Vec::new();
+
+
+        // Check that coun is const (so it occurs at compile time)
+        const _:usize = $crate::avec![@COUNT; $($element),*];
+
+
+        // We need a macro to create the count value nedeed for Vec::with_capacity()
+        // let count = [$(element),*].len(); Not ok beacuse we reevaluate every expression multiple times
+        #[allow(unused_mut)]
+        let mut vs = Vec::with_capacity($crate::avec![@COUNT; $($element),*]);
         // Syntax needed to state instruction repetition over an expression
         $(vs.push($element);)+
         vs
@@ -15,11 +21,15 @@ macro_rules! avec {
     // Match to add the same $element $count times
     ($element:expr; $count:expr) => {{
         let mut vs = Vec::new();
+        //More efficient than a loop cause it gets rid of the pointer increment in the vec and adds elements directly in it
+        vs.resize($count, $element);
+        /*
         let x = $element;
-        for _ in 0..$count {
+        for _ in 0..count {
             vs.push(x.clone());
-        }
-        vs
+        }*/
+        vs 
+
     }};
 
     // Match to add the same $element $count times (Being $element non literal, more complex expression)
@@ -30,6 +40,19 @@ macro_rules! avec {
         }
         vs
     }};
+    
+
+    // Internal macro feature to accomplish the counting of variable numbers of parameters in with_capacity()
+    (@COUNT; $($element:expr),*) => {
+
+        // We use @SUBST to not take the element yielded by @COUNT, as rust need an expression with a variable to look at we need @SUBST
+        <[()]>::len(&[$($crate::avec![@SUBST; $element]),*])
+        // <[()]>::len Here we are calling the method .len from a slice, we can use this because as a &str (notice the & inmediatly after) has the as_ref_slice() 
+        // we can use every method that reside on Slice
+    };
+
+    // When @SUBST is expanded there is nothing more but the only computation of the macro
+    (@SUBST; $_element:expr) => { ( ) };
 
 }
 
@@ -54,12 +77,8 @@ max_impl!(u32);
 max_impl!(i64);
 max_impl!(u64);
 
-#[test]
-fn empty_vec(){
-    let x: Vec<u32> = avec![];
-    assert!(x.is_empty());
-}
 
+// We can use cargo expand --lib --tests to see the expansion of every macro
 #[test]
 fn single(){
     let x: Vec<u32> = avec![42];
@@ -76,13 +95,16 @@ fn double(){
     assert_eq!(x[0], 42);
 }
 
- 
+#[test]
 fn trailing(){
-    let x: Vec<u32> = avec![1,2,3,4,
-    5,6,7,8,9,10];
-    assert!(!x.is_empty());
-    assert_eq!(x.len(),2);
-    assert_eq!(x[0], 42);
+    let _: Vec<&'static str> = avec![
+        "kjasdjakisdfhkjasfhdgkjafghkjahfgjkashfkjghadkjfghakjdfg",
+        "kjasdjakisdfhkjasfhdgkjafghkjahfgjkashfkjghadkjfghakjdfg",
+        "kjasdjakisdfhkjasfhdgkjafghkjahfgjkashfkjghadkjfghakjdfg",
+        "kjasdjakisdfhkjasfhdgkjafghkjahfgjkashfkjghadkjfghakjdfg",
+        "kjasdjakisdfhkjasfhdgkjafghkjahfgjkashfkjghadkjfghakjdfg",
+        "kjasdjakisdfhkjasfhdgkjafghkjahfgjkashfkjghadkjfghakjdfg"
+    ];
 }
 
 
@@ -102,3 +124,10 @@ fn clone_2_non_literal(){
     assert_eq!(x[1], 42);
     assert_eq!(x[2], 42);
 }
+
+// A trick to make failing test
+/// ```compile_fail
+/// let x:Vec <u32> = vecmac::avec![42;"foo"];
+/// ```
+#[allow(dead_code)]
+pub struct CompileFaileTest;
